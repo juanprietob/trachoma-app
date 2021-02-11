@@ -1,6 +1,7 @@
-import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Camera } from 'expo-camera';
+
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-react-native';
 import { bundleResourceIO } from '@tensorflow/tfjs-react-native'
@@ -13,35 +14,63 @@ class TestComponent extends React.Component {
     };
   }
  
-  async componentDidMount() {
+  componentDidMount() {
     // Wait for tf to be ready.
-    await tf.ready();
-    // Signal to the app that tensorflow.js can now be used.
-    this.setState({
-      isTfReady: true,
+    tf.ready()
+    .then(()=>{
+      const modelJSON = require('./assets/models/flat_u_seg_nn/model.json');
+      const modelWeights = require("./assets/models/flat_u_seg_nn/weights.bin");
+      return tf.loadLayersModel(bundleResourceIO(modelJSON, modelWeights));
+    })
+    .then((model)=>{
+      model.summary();
     });
-
-
-    const modelJSON = require('./assets/models/flat_u_seg_nn/model.json');
-    const modelWeights = require('./assets/models/flat_u_seg_nn/weights.bin');
-    
-    const model = await tf.loadLayersModel(bundleResourceIO(modelJSON, modelWeights));
-    model.summary();
-    this.setState({ model })
+    // this.setState({ model })
   }
  
- 
   render() {
-    return <Text>I am Ready!!!</Text>
+    return (
+      <Text>I'm ready</Text>
+    );
   }
 }
 
-
 export default function App() {
+  const [hasPermission, setHasPermission] = useState(null);
+  const [type, setType] = useState(Camera.Constants.Type.back);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
+  }, []);
+
+  console.log(hasPermission)
+  if (hasPermission === null) {
+    return <View />;
+  }
+  if (hasPermission === false) {
+    return <Text>No access to camera</Text>;
+  }
   return (
     <View style={styles.container}>
+      <Camera style={styles.camera} type={type}>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              setType(
+                type === Camera.Constants.Type.back
+                  ? Camera.Constants.Type.front
+                  : Camera.Constants.Type.back
+              );
+            }}>
+            <Text style={styles.text}> Flip </Text>
+          </TouchableOpacity>
+        </View>
+      </Camera>
       <TestComponent/>
-      <StatusBar style="auto" />
     </View>
   );
 }
@@ -49,8 +78,23 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+  },
+  camera: {
+    flex: 1,
+  },
+  buttonContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    margin: 20,
+  },
+  button: {
+    flex: 0.1,
+    alignSelf: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  text: {
+    fontSize: 18,
+    color: 'white',
   },
 });
